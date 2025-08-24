@@ -4,14 +4,9 @@
 This project contains a Spring Boot microservice that uploads files to an Amazon S3 bucket and is intended to act as the entry point of a larger file-processing pipeline. Users send files through an HTTP endpoint, the service stores the raw object in S3, and a message queue notifies downstream processing services about the new file.
 
 ## Architecture
-```mermaid
-graph LR
-    A[Client] -->|Uploads file| B[Upload-Service]
-    B -->|Stores raw file| C[(S3 Bucket\nRaw Zone)]
-    B -->|Publishes message| D[(Amazon SQS)]
-    D -->|Triggers| E[Processing-Service]
-    E -->|Writes processed file| F[(S3 Bucket\nFinal Zone)]
-```
+<img width="3570" height="2357" alt="Blank board" src="https://github.com/user-attachments/assets/4e30dd25-1e02-433e-88e9-265bd333c7ff" />
+
+
 
 ## Codebase Structure
 - **`src/main/java/com/TuntuSK/upload_service/UploadServiceApplication.java`** – Spring Boot application entry point.
