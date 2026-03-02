@@ -18,18 +18,29 @@ import java.util.Map;
 import java.util.UUID;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+
+record FileUploadedEvent(String fileName, String s3Key) {}
 
 @Service
 public class S3Service {
     private S3Client s3Client;
     private final String bucketName;
+    private final String queueName;
+    private final SqsTemplate sqsTemplate;
+
     private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
+
     @Autowired
-    public S3Service(S3Client s3Client,@Value("${app.aws.s3.bucket-name}") String bucketName ) {
+    public S3Service(S3Client s3Client, 
+                     @Value("${app.aws.s3.bucket-name}") String bucketName,
+                     @Value("${app.aws.sqs.queue-name}") String queueName,
+                     SqsTemplate sqsTemplate) {
         this.s3Client = s3Client;
         this.bucketName = bucketName;
+        this.queueName = queueName;
+        this.sqsTemplate = sqsTemplate;
     }
-
     public String uploadFile(MultipartFile multipartFile) throws IOException {
         String uniqueFileName = UUID.randomUUID().toString() + "-" + multipartFile.getOriginalFilename();
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -39,9 +50,14 @@ public class S3Service {
                 .build();
         s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(multipartFile.getInputStream(),
                 multipartFile.getSize()));
+
+        // Publish event to SQS
+        FileUploadedEvent event = new FileUploadedEvent(multipartFile.getOriginalFilename(), uniqueFileName);
+        sqsTemplate.send(to -> to.queue(queueName).payload(event));
+        logger.info("Published FileUploadedEvent to SQS for file: {}", uniqueFileName);
+
         return uniqueFileName;
     }
-
     public String generatePresignedGetUrl(String filepath) {
         try (S3Presigner presigner = S3Presigner.create()) {
             GetObjectRequest objectRequest = GetObjectRequest.builder()

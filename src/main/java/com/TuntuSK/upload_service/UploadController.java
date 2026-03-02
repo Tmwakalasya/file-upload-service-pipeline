@@ -18,12 +18,31 @@ public class UploadController {
     }
 
     @PostMapping
-    public ResponseEntity<String> handleFileUpload(@RequestParam("file") MultipartFile file) throws IOException {
+    public ResponseEntity<String> handleFileUpload(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("Please select a file to upload.");
         }
-        String resultMessage = s3service.uploadFile(file);
 
-        return ResponseEntity.ok(resultMessage);
+        // Validate File Extension
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !isValidExtension(originalFilename)) {
+             return ResponseEntity.badRequest().body("Invalid file type. Only PNG, JPG, PDF, and CSV files are allowed.");
+        }
+
+        try {
+            String resultMessage = s3service.uploadFile(file);
+            return ResponseEntity.ok(resultMessage);
+        } catch (IOException e) {
+             return ResponseEntity.internalServerError().body("Failed to upload file: " + e.getMessage());
+        }
+    }
+
+    private boolean isValidExtension(String filename) {
+        String lowerCaseName = filename.toLowerCase();
+        return lowerCaseName.endsWith(".png") ||
+               lowerCaseName.endsWith(".jpg") ||
+               lowerCaseName.endsWith(".jpeg")||
+               lowerCaseName.endsWith(".pdf") ||
+               lowerCaseName.endsWith(".csv");
     }
 }
